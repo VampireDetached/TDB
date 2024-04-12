@@ -348,7 +348,23 @@ RC Table::insert_record(Record &record)
   }
 
   // TODO [Lab2] 增加索引的处理逻辑
-
+  int indexsize = indexes_.size();
+  for (int i=0 ; i<indexsize ; i++)
+  {
+    Index * curindex = indexes_[i];
+    RC result = curindex->insert_entry(record.data(), &record.rid());
+    if (result == RC::RECORD_DUPLICATE_KEY)
+    {
+      result = record_handler_->delete_record(&record.rid());
+      LOG_ERROR("Insert duplicate record!");
+    }
+    else if (result != RC::SUCCESS) 
+    {
+      result = record_handler_->delete_record(&record.rid());
+      LOG_ERROR("Insert record error!");
+    }
+    continue;        
+  }
   return rc;
 }
 
@@ -357,6 +373,18 @@ RC Table::delete_record(const Record &record)
   RC rc = RC::SUCCESS;
 
   // TODO [Lab2] 增加索引的处理逻辑
+  int indexsize = indexes_.size();
+  for (int i=0 ; i<indexsize ; i++)
+  {
+    Index * curindex = indexes_[i];
+    RC result = curindex->delete_entry(record.data(), &record.rid());
+    if (result != RC::RECORD_DUPLICATE_KEY)
+    {
+      LOG_ERROR("Insert record error!");
+    }
+    continue;        
+  }
+  return rc;
 
   rc = record_handler_->delete_record(&record.rid());
   return rc;

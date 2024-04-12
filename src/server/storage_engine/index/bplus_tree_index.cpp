@@ -91,7 +91,20 @@ RC BplusTreeIndex::close()
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
   // TODO [Lab2] 增加索引项的处理逻辑
-  return RC::SUCCESS;
+  int mfmsize = multi_field_metas_.size();
+  const char * multi_keys [mfmsize];
+  for (int i = 0;i < mfmsize;i++)
+  {
+    const char * multifield_meta = record + multi_field_metas_[i].offset();
+    int mulmeta_len =strlen(multifield_meta);
+    IndexScanner * DuplicateScanner=create_scanner(multifield_meta,mulmeta_len,true,multifield_meta,mulmeta_len,true);
+    if(index_meta_.is_unique() && DuplicateScanner != nullptr)
+      return RC::RECORD_DUPLICATE_KEY;
+
+    multi_keys[i] = multifield_meta;
+  }
+  RC result = index_handler_.insert_entry(multi_keys, rid, mfmsize);
+  return result;
 }
 
 /**
@@ -101,6 +114,19 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
 {
   // TODO [Lab2] 增加索引项的处理逻辑
+  int mfmsize = multi_field_metas_.size();
+  const char * multi_keys [mfmsize];
+  for (int i = 0;i < mfmsize;i++)
+  {
+    const char * multifield_meta = record + multi_field_metas_[i].offset();
+    int mulmeta_len =strlen(multifield_meta);
+    IndexScanner * DuplicateScanner=create_scanner(multifield_meta,mulmeta_len,true,multifield_meta,mulmeta_len,true);
+    if(index_meta_.is_unique() && DuplicateScanner != nullptr)
+      return RC::RECORD_DUPLICATE_KEY;
+
+    multi_keys[i] = multifield_meta;
+  }
+  RC result = index_handler_.delete_entry(multi_keys, rid, mfmsize);
   return RC::SUCCESS;
 }
 

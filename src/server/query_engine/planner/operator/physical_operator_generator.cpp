@@ -94,6 +94,27 @@ RC PhysicalOperatorGenerator::create_plan(
     //   if(compare_expr->comp != EQUAL_TO) continue;
     //   [process]
     //  }
+    int presize = predicates.size();
+    Expression * fieldexp ;
+    Expression * valueexp ;
+    Index * index ;
+    for (int i =0; i < presize; i++)
+    {
+      Expression *curexp = predicates[i].get();
+      if (curexp->type() == ExprType::COMPARISON)
+      {
+        auto compare_expr = dynamic_cast<ComparisonExpr*>(curexp);
+        if(compare_expr->comp() != EQUAL_TO) continue;
+        {
+          fieldexp = compare_expr->left().get();
+          valueexp = compare_expr->right().get();
+          index = table_get_oper.table()->find_index_by_field(fieldexp->name().data());
+        }
+      }
+
+      
+    }
+
   // 2. 对应上面example里的process阶段， 找到等值表达式中对应的FieldExpression和ValueExpression(左值和右值)
   // 通过FieldExpression找到对应的Index, 通过ValueExpression找到对应的Value
   // ps: 由于我们只支持单键索引，所以只需要找到一个等值表达式即可
@@ -108,10 +129,10 @@ RC PhysicalOperatorGenerator::create_plan(
   }else{
     // TODO [Lab2] 生成IndexScanOperator, 并放置在算子树上，下面是一个实现参考，具体实现可以根据需要进行修改
     // IndexScanner 在设计时，考虑了范围查找索引的情况，但此处我们只需要考虑单个键的情况
-    // const Value &value = value_expression->get_value();
-    // IndexScanPhysicalOperator *operator =
-    //              new IndexScanPhysicalOperator(table, index, readonly, &value, true, &value, true);
-    // oper = unique_ptr<PhysicalOperator>(operator);
+    Value value = dynamic_cast<ValueExpr*>(valueexp)->get_value();
+    IndexScanPhysicalOperator * indexoperator = new IndexScanPhysicalOperator(table_get_oper.table(), index, table_get_oper.readonly(), &value, true, &value, true);
+    oper = unique_ptr<PhysicalOperator>(indexoperator);
+    LOG_TRACE("use index scan");
   }
 
   return RC::SUCCESS;
