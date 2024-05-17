@@ -96,24 +96,25 @@ RC LogicalPlanGenerator::plan_node(
   const std::vector<Table *> &tables     = select_stmt->tables();
   const std::vector<Field *> &all_fields = select_stmt->query_fields();
   RC rc;
-
-  std::unique_ptr<LogicalNode> root;
+  unique_ptr<LogicalNode> root;
+  std::vector<unique_ptr<LogicalNode>> TableGetList;
 
   // 1. Table scan node
   //TODO [Lab3] 当前只取一个表作为查询表,当引入Join后需要考虑同时查询多个表的情况
   //参考思路: 遍历tables中的所有Table，针对每个table生成TableGetLogicalNode
-   Table *default_table = tables[0];
-   const char *table_name = default_table->name();
-   std::vector<Field> fields;
-   for (auto *field : all_fields) {
-     if (0 == strcmp(field->table_name(), default_table->name())) {
-       fields.push_back(*field);
-     }
-   }
-
-   root = std::unique_ptr<LogicalNode>(
-       new TableGetLogicalNode(default_table, select_stmt->table_alias()[0], fields, true/*readonly*/));
-
+  for (int i = 0; i < tables.size(); i++)
+  { 
+    Table *default_table = tables[i];
+    const char *table_name = default_table->name();
+    std::vector<Field> fields;
+    for (auto *field : all_fields) {
+      if (0 == strcmp(field->table_name(), default_table->name())) {
+        fields.push_back(*field);
+      }
+    }
+    TableGetList.push_back(unique_ptr<LogicalNode>(
+      new TableGetLogicalNode(default_table, select_stmt->table_alias()[i], fields, true/*readonly*/)));
+  }
   // 2. inner join node
   // TODO [Lab3] 完善Join节点的逻辑计划生成, 需要解析并设置Join涉及的表,以及Join使用到的连接条件
   // 如果只有一个TableGetLogicalNode,直接将其设置为root节点，跳过该阶段
@@ -122,6 +123,27 @@ RC LogicalPlanGenerator::plan_node(
   // * 遍历TableGetLogicalNode
   // * 生成JoinLogicalNode, 通过select_stmt中的join_filter_stmts
   // ps: 需要考虑table数大于2的情况
+  vector<unique_ptr<JoinLogicalNode>> join_node;
+  auto join_filter_stmts = select_stmt->join_filter_stmts();
+
+  for (int i =0; i<TableGetList.size(); i++)
+  {
+    if(root != nullptr)
+    {
+      std::unique_ptr<JoinLogicalNode> join_oper(new JoinLogicalNode());
+      join_oper->set_condition(unique_ptr<Expression>(_transfer_filter_stmt_to_expr(join_filter_stmts[TableGetList.size()-1-i])));
+      join_oper->add_child(std::move(root));
+      join_oper->add_child(std::move(TableGetList[i]));
+      root=std::move(join_oper);
+    }
+    else
+    {
+      root=std::move(TableGetList[i]);
+    }
+  }
+
+  
+
 
 
   // 3. Table filter node

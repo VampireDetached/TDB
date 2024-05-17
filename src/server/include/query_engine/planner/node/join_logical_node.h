@@ -24,7 +24,26 @@ public:
   {
     return condition_;
   }
+
+  std::unique_ptr<LogicalNode> &parent()
+  {
+    return parent_;
+  }
+
+  std::unique_ptr<LogicalNode> &leftchild()
+  {
+    return leftchild_;
+  }
+
+  std::unique_ptr<LogicalNode> &rightchild()
+  {
+    return rightchild_;
+  }
+
 private:
   // Join的条件，目前只支持等值连接
   std::unique_ptr<Expression> condition_;
+  std::unique_ptr<LogicalNode> parent_;
+  std::unique_ptr<LogicalNode> leftchild_;
+  std::unique_ptr<LogicalNode> rightchild_;
 };

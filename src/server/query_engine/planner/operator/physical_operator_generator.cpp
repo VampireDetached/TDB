@@ -26,6 +26,10 @@
 #include "include/query_engine/planner/operator/group_by_physical_operator.h"
 #include "common/log/log.h"
 #include "include/storage_engine/recorder/table.h"
+#include "include/query_engine/planner/operator/join_physical_operator.h"
+#include "include/query_engine/structor/expression/comparison_expression.h"
+#include "include/query_engine/structor/expression/value_expression.h"
+#include "include/query_engine/planner/operator/index_scan_physical_operator.h"
 
 using namespace std;
 
@@ -68,7 +72,9 @@ RC PhysicalOperatorGenerator::create(LogicalNode &logical_operator, unique_ptr<P
       return create_plan(static_cast<ExplainLogicalNode &>(logical_operator), oper, is_delete);
     }
     // TODO [Lab3] 实现JoinNode到JoinOperator的转换
-    case LogicalNodeType::JOIN:
+    case LogicalNodeType::JOIN: {
+      return create_plan(static_cast<JoinLogicalNode &>(logical_operator), oper);
+    }
     case LogicalNodeType::GROUP_BY: {
       return RC::UNIMPLENMENT;
     }
@@ -98,7 +104,6 @@ RC PhysicalOperatorGenerator::create_plan(
     int presize = predicates.size();
     Expression * fieldexp ;
     Expression * valueexp ;
-    Index * index ;
     for (int i =0; i < presize; i++)
     {
       Expression *curexp = predicates[i].get();
@@ -341,5 +346,22 @@ RC PhysicalOperatorGenerator::create_plan(
 RC PhysicalOperatorGenerator::create_plan(
     JoinLogicalNode &join_oper, unique_ptr<PhysicalOperator> &oper)
 {
-  return RC::UNIMPLENMENT;
+  vector<unique_ptr<LogicalNode>> &child_opers = join_oper.children();
+
+  RC rc = RC::SUCCESS;
+
+  
+  unique_ptr<Expression> expression = std::move(join_oper.condition());
+  unique_ptr<JoinPhysicalOperator> join_physical_oper(new JoinPhysicalOperator(std::move(expression)));
+  for (unique_ptr<LogicalNode> &child_oper : child_opers) {
+    unique_ptr<PhysicalOperator> child_physical_oper;
+    rc = create(*child_oper, child_physical_oper);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to create child physical operator. rc=%s", strrc(rc));
+      return rc;
+    }
+    join_physical_oper->add_child(std::move(child_physical_oper));
+  }
+  oper = std::move(join_physical_oper);
+  return rc;
 }
